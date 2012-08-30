@@ -92,7 +92,7 @@ module Net # :nodoc:
           begin
             socket = nil
             @config[:tcp_timeout].timeout do
-              catch "next nameserver" do
+              catch(:next_ns) do
                 begin
                   socket = Rex::Socket::Tcp.create(
                     'PeerHost' => ns.to_s,
@@ -101,7 +101,7 @@ module Net # :nodoc:
                   )
                 rescue
                   @logger.warn "TCP Socket could not be established to #{ns}:#{@config[:port]} #{@config[:proxies]}"
-                  return nil
+                  throw :next_ns
                 end
                 next unless socket #
                 @logger.info "Contacting nameserver #{ns} port #{@config[:port]}"
@@ -115,7 +115,7 @@ module Net # :nodoc:
                       break #Proper exit from loop
                     else
                       @logger.warn "Connection reset to nameserver #{ns}, trying next."
-                      throw "next nameserver"
+                      throw :next_ns
                     end
                   end
                   got_something = true
@@ -123,9 +123,9 @@ module Net # :nodoc:
 
                   @logger.info "Receiving #{len} bytes..."
 
-                  if len == 0
+                  if len.nil? or len == 0
                     @logger.warn "Receiving 0 length packet from nameserver #{ns}, trying next."
-                    throw "next nameserver"
+                    throw :next_ns
                   end
 
                   while (buffer.size < len)
@@ -136,7 +136,7 @@ module Net # :nodoc:
 
                   unless buffer.size == len
                     @logger.warn "Malformed packet from nameserver #{ns}, trying next."
-                    throw "next nameserver"
+                    throw :next_ns
                   end
                   if block_given?
                     yield [buffer,["",@config[:port],ns.to_s,ns.to_s]]
@@ -145,16 +145,16 @@ module Net # :nodoc:
                   end
                 end
               end
-			end
-		  rescue Timeout::Error
-			  @logger.warn "Nameserver #{ns} not responding within TCP timeout, trying next one"
-			  next
-		  ensure
-			  socket.close if socket
-		  end
-		end
-		return nil
-	  end
+    			end
+  		  rescue Timeout::Error
+  			  @logger.warn "Nameserver #{ns} not responding within TCP timeout, trying next one"
+  			  next
+  		  ensure
+  			  socket.close if socket
+  		  end
+  		end
+  		return nil
+  	  end
 
       def send_udp(packet,packet_data)
         ans = nil
