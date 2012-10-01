@@ -52,6 +52,7 @@ class Metasploit3 < Msf::Auxiliary
 				OptInt.new('RETRY', [ false, "Number of times to try to resolve a record if no response is received", 2]),
 				OptInt.new('RETRY_INTERVAL', [ false, "Number of seconds to wait before doing a retry", 2]),
 				OptInt.new('BRT_THREADS', [ true, "Number of threads to use for brute force", 1]),
+				OptBool.new('BRT_REPORT_HOST', [false, "Add hosts found via bruteforce to DB", false]),
 				OptBool.new('TCP_DNS', [false, "Run queries over TCP", false]),
 			], self.class)
 	end
@@ -257,7 +258,10 @@ class Metasploit3 < Msf::Auxiliary
 									:port => 53 ,
 									:type => 'dns.enum',
 									:update => :unique_data,
-									:data => "#{rr.address.to_s},#{line.chomp}.#{target},A") 
+									:data => "#{rr.address.to_s},#{line.chomp}.#{target},A")
+								if datastore['BRT_REPORT_HOST']
+									report_host(:host => rr.address.to_s, :state => Msf::HostState::Alive)
+								end
 								next unless rr.class == Net::DNS::RR::CNAME
 							end
 						end
