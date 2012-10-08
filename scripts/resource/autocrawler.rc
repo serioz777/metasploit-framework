@@ -26,7 +26,7 @@ end
 def jobwaiting()	#thread handling for poor guys ...
         maxjobs=15      #throttling if we get too much jobs
         while(framework.jobs.keys.length >= maxjobs)
-                ::IO.select(nil, nil, nil, 2.5)
+                Rex::ThreadSafe.sleep(2.5)
                 print_error("waiting for finishing some modules... active jobs: #{framework.jobs.keys.length} / threads: #{framework.threads.length}")
         end
 end
@@ -48,17 +48,33 @@ framework.db.workspace.hosts.each do |host|
 		run_single("set MAX_THREADS #{threadspercrawler}")
 		run_single("set RHOST #{host.address}")
 		run_single("set RPORT #{serv.port.to_i}")
+		# Make array of VHOSTS for this IP
+		vhosts = framework.db.workspace.notes.find_all {
+			|n| n.host.address == host.address and n.ntype == 'VHOST'
+		}.map(&:data)
+		# Check to see if the assigned host name looks like a DNS name
+		# disregard if starting with an * for wildcard SSL
+		if host.name =~ /\w+\.\w+$/
+			# some hosts are named from the result of an ssl scan with a *. cert
+			# add the parent domain name to the VHOSTS list if thats the case
+			vhosts << host.name.scan(/\w.+/).first
+		end
 		if(serv.name == "https")
 			run_single("set SSL true")
 		else
 			run_single("set SSL false")
 		end
-		if(verbose == 1)
-                       	run_single("set VERBOSE true")
-                        run_single("run -j")
-                else
-                     	run_single("run -j -q")
-                end
+		vhosts << '' if vhosts.empty?
+		vhosts.each do |vhost|
+			run_single("set VHOST #{vhost}")
+			if(verbose == 1)
+	                       	run_single("set VERBOSE true")
+	                        run_single("run -j")
+	                else
+	                     	run_single("run -j -q")
+	                end
+	        jobwaiting()
+        end
 		run_single("back")
 		jobwaiting()
 	end
