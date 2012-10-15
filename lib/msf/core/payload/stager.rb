@@ -8,6 +8,28 @@ require 'msf/core'
 ###
 module Msf::Payload::Stager
 
+    def initialize(info = {}) 
+          ret = super(info)
+
+          register_advanced_options(
+                  [   
+                          Msf::OptString.new('StageEncodersList',
+                                  [   
+                                          false,
+                                          "Comma separated list of encoders to use",
+                                  ]   
+                          ),  
+                          Msf::OptString.new('EncodeStagesList',
+                                  [   
+                                          false,
+                                          "Comma separated list of stages to encode",
+                                  ]   
+                          ),  
+                  ], Msf::Payload::Stager)
+
+          ret 
+  end
+
 	#
 	# Sets the payload type to a stager.
 	#
@@ -76,7 +98,7 @@ module Msf::Payload::Stager
 		substitute_vars(p, stage_offsets) if (stage_offsets)
 
 		# Encode the stage of stage encoding is enabled
-		p = encode_stage(p)
+		p = encode_stage(p) # if p matches some criteria from EncodeStagesList
 
 		return p
 	end
@@ -149,15 +171,21 @@ module Msf::Payload::Stager
 
 		if datastore['StageEncodersList']
 			print_status("Encoding stage...")
+      # Validate encoders list
+      val_enc_list = []
+      datastore['StageEncodersList'].split(',').map(&:strip).keep_if do |enc|
+        val_enc_list << enc if framework.encoders.keys.include?(enc)
+      end
 
 			# Generate an encoded version of the stage.  We tell the encoding system
 			# to save edi to ensure that it does not get clobbered.
 			encp = Msf::EncodedPayload.create(
 				self,
 				'Raw'           => stg,
-				'StageEncoders'	=> datastore['StageEncodersList'],
+				'StageEncoders'	=> val_enc_list,
 				'SaveRegisters' => ['edi'],
-				'ForceEncode'   => true)	
+				'ForceEncode'   => true
+      )	
 			print_status("Stage successfully encoded")
 			return encp.encoded
 			else
