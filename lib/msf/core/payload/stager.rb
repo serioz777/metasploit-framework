@@ -173,7 +173,7 @@ module Msf::Payload::Stager
 			print_status("Encoding stage...")
       # Validate encoders list
       val_enc_list = []
-      datastore['StageEncodersList'].split(',').map(&:strip).keep_if do |enc|
+      datastore['StageEncodersList'].split(',').map(&:strip).each do |enc|
         val_enc_list << enc if framework.encoders.keys.include?(enc)
       end
 
