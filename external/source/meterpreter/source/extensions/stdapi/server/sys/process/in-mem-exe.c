@@ -125,7 +125,6 @@ BOOL MapNewExecutableRegionInProcess(
                 }
                 else
                     TerminateProcess(TargetProcessHandle, 0);
-            VirtualFree(ThreadContext, 0, MEM_RELEASE);
             }
         }
     }
