@@ -77,8 +77,12 @@ class Framework
 
 		# Allow specific module types to be loaded
 		types = opts[:module_types] || MODULE_TYPES
-
-		self.threads   = ThreadManager.new(self)
+		if Rex.const_defined?(:Rbx)
+			require 'msf/core/actor_manager'
+			self.threads = ActorManager.new(self)
+		else
+			self.threads = ThreadManager.new(self)
+		end
 		self.events    = EventDispatcher.new(self)
 		self.modules   = ModuleManager.new(self,types)
 		self.sessions  = SessionManager.new(self)
@@ -301,7 +305,7 @@ class FrameworkEventSubscriber
 	#
 	def session_event(name, session, opts={})
 		address = session.session_host
-		
+
 		if not (address and address.length > 0)
 			elog("Session with no session_host/target_host/tunnel_peer")
 			dlog("#{session.inspect}", LEV_3)
